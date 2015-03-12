@@ -1,0 +1,16 @@
+</font></small></h1>
+</div>
+<div align='center' class='container'>
+  <div class='row' >
+    <div class='col-lg-12'>
+      <div class='btn-group'> 
+	  <a class='btn btn-primary' href='index.pl'><span class='glyphicon glyphicon-home'></span> Moteur de recherche</a>
+	  <a class='btn btn-primary' href='rechercheAvancee.pl'><span class='glyphicon glyphicon-zoom-in'></span> Recherche avancée</a>
+	  <a class='btn btn-primary' href='parametres.pl'><span class='glyphicon glyphicon-cog'></span> Paramètres</a>
+          <a class='btn btn-primary' href='statistiques.pl'><span class='glyphicon glyphicon-stats'></span> Statistiques</a>
+          <a class='btn btn-primary' href='informations.pl'><span class='glyphicon glyphicon-question-sign'> Informations</a>
+      </div>
+    </div>
+  </div>
+</div>   
+</br>
