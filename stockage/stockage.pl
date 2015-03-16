@@ -8,9 +8,10 @@ use Encode;
 
 my @motsVides = separer(lireTexte('motsVides'));
 
-=pod
-Initialisation
-=cut
+######################
+### Initialisation ###
+######################
+
 # On se connecte à la base de données
 my $client = MongoDB::MongoClient -> new;
 my $db = $client -> get_database('Wikinews');
@@ -24,9 +25,10 @@ $direct -> remove();
 my %indexDirect = ();
 my %indexInverse = ();
 
-=pod
-Parsage des fichiers HTML
-=cut
+#################################
+### Parsage des fichiers HTML ###
+#################################
+
 # On récupère les fichiers HTML dans le dossier data
 opendir (DIR, 'data/') or die $!;
 # On regarde chaque fichier HTML
@@ -51,6 +53,8 @@ while (my $fichier = readdir(DIR)) {
 		my $body = maxhtmlparsing::body($contenu);
 		# On enlève les liens vers les réseaux sociaux
 		$body = maxhtmlparsing::enleverPartage($body);
+		# On enlève la deuxième date de l'article (redondance)
+		$body = maxhtmlparsing::enleverEvenement($body);
 		# On récupère les paragraphes entre les balises p
 		$body = maxhtmlparsing::paragraphes($body);
 		# On enlève le code HTML
@@ -63,15 +67,17 @@ while (my $fichier = readdir(DIR)) {
 	}
 }
 
-=pod
-Indexation des fichiers textes
-=cut
+######################################
+### Indexation des fichiers textes ###
+######################################
+
 # On index les bodys extraits
 indexerCollection('bodies/');
 
-=pod
-Stockage dans la base MongoDB
-=cut
+#####################################
+### Stockage dans la base MongoDB ###
+#####################################
+
 # On stocke l'index direct
 foreach my $document (keys %indexDirect) {
 	$direct -> save({
@@ -94,10 +100,11 @@ foreach my $mot (keys %indexInverse) {
 		});
 }
 
-=pod
-Les fonctions suivantes ne sont pas dans le module
-maxparsing car elles nécessitent des variables globales.
-=cut
+################################################################
+### Les fonctions suivantes ne sont pas dans le module       ###
+### maxparsing car elles nécessitent des variables globales. ###
+################################################################
+
 sub indexer {
 	# Paramètres
 	my ( $idDoc, $chemin ) = @_;

@@ -65,8 +65,7 @@ for my $document (keys %pertinences) {
 	<div class='panel panel-info'>
 		<div align='left' class='panel-heading'> 
 		<h4>
-			<a href='#$item' data-parent='#accordeon' data-toggle='collapse'>
-				<font face='verdana'>$itemCounter. $document</font></a> 
+			<a href='#$item' data-parent='#accordeon' data-toggle='collapse'>$itemCounter. $document</a> 
       		</h4>
       		</div>
       		<div id='$item' class='panel-collapse collapse'>

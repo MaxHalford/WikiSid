@@ -12,9 +12,9 @@ use HTML::Entities;
 
 
 sub body {
-	#On prend un fichier html en paramètre (on suppose que c'est une ligne sans retour chariot)
+	# On prend un fichier html en paramètre (on suppose que c'est une ligne sans retour chariot)
 	my $html = $_[0];
-	#On en extrait le body
+	# On en extrait le body
 	if ($html =~ /<body.*?>(.*)<\/body>/i) {
 		return $1;
 	} else {
@@ -24,28 +24,36 @@ sub body {
 
 
 sub clean {
-	#Paramètres
+	# Paramètres
 	my @fichier = @_;
-	#On raccorde les lignes
+	# On raccorde les lignes
 	my $ligne = join("",@fichier);
-	#Et on enlève les retours chariots
+	# Et on enlève les retours chariots
 	$ligne =~ s/\s+/ /g;
 	return $ligne;
 }
 
 
 sub enleverPartage {
-	#Paramètres
+	# Paramètres
 	my $ligne = $_[0];
-	#On remplace ce qui entre des balises <td>
+	# On remplace ce qui entre des balises <td>
 	$ligne =~ s/Partager cet article.+<\/td>/ /gi;
 	return $ligne
 }
 
-sub paragraphes {
-	#Paramètres
+sub enleverEvenement {
+	# Paramètres
 	my $ligne = $_[0];
-	#On sort tous ce qui entre des balises paragraphes
+	# On remplace ce qui entre des balises <td>
+	$ligne =~ s/Évènements du \d+ \w+ \d{4}/ /gi;
+	return $ligne
+}
+
+sub paragraphes {
+	# Paramètres
+	my $ligne = $_[0];
+	# On sort tous ce qui entre des balises paragraphes
 	my @contenu = ();
 	while ($ligne =~ /<p>(.*?)<\/p>/gi) {
 		push(@contenu, $1);
@@ -56,9 +64,9 @@ sub paragraphes {
 
 
 sub retirerHTML {
-	#Paramètres
+	# Paramètres
 	my $chaine = $_[0];
-	#Et maintenant on enlève les balises
+	# Et maintenant on enlève les balises
 	$chaine =~ s/<.+?>//g;
 	return decode_entities($chaine);
 }
@@ -139,15 +147,15 @@ sub sources {
 
 
 sub occurrences {
-	#On suppose que le paramètre $contenu est une ligne sans balisage html
+	# On suppose que le paramètre $contenu est une ligne sans balisage html
 	my $contenu =$ _[0];
 	my @mots = split " ",$contenu;
 	my %occurrences = ();
 	foreach my $mot (@mots) {
-		#S'il a déjà été rentré alors on incrémente l'entrée du dictionnaire
+		# S'il a déjà été rentré alors on incrémente l'entrée du dictionnaire
 		if (exists $occurrences{$mot}) {
 			$occurrences{$mot}++;
-		#Sinon on crée une entrée dans le dictionnaire
+		# Sinon on crée une entrée dans le dictionnaire
 		} else {
 			$occurrences{$mot}=1;
 		}
@@ -164,18 +172,4 @@ sub liens {
 	}
 	return %liens;
 }
-
-#~ open FILE, '<', "data/Espagne   un avion de combat s'écrase et fait 10 morts — Wikinews.html" or die $!;
-#~ # On met chaque ligne dans un tableau
-#~ my @data = <FILE>;
-#~ # On joint les lignes et on enlève les espaces en trop
-#~ my $contenu = maxhtmlparsing::clean(@data);
-#~ my $body = maxhtmlparsing::body($contenu);
-#~ # On enlève les liens vers les réseaux sociaux
-#~ print $body;
-#~ # On récupère les paragraphes entre les balises p
-#~ $body = maxhtmlparsing::paragraphes($body);
-#~ print $body;
-#~ # On enlève le code HTML
-#~ $body = maxhtmlparsing::retirerHTML($body);
 1;

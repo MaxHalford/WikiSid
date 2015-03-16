@@ -8,9 +8,13 @@
 <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js'></script>
 <!-- favicon -->
 <link rel="shortcut icon" href="img/favicon.ico">
-<script src='js/bootstrap.js'></script>
+<!-- Google Fonts -->
+<link href="http://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet" type="text/css">
+<!-- javascript modules -->
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script src='js/bootstrap/bootstrap.js'></script>
 <script src='js/chart/Chart.js'></script>
 </head>
 <body background='img/pentagon.png'>
 <div align='center'>
-<h1><img src='img/logo.png' height='20%' width='20%'> <small><font face='verdana'>
+<h1><img src='img/logo.png' height='20%' width='20%'> <small>

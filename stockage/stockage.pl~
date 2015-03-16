@@ -1,111 +1,143 @@
 #!/usr/bin/perl -w
+require maxhtmlparsing;
+require maxindexing;
 use strict;
-use Data::Dumper;
-use JSON;
-use Encode;
 use open qw/:std :utf8/;
-use Lingua::Stem qw(stem);
+use MongoDB;
+use Encode;
 
-sub lireTexte {
+my @motsVides = separer(lireTexte('motsVides'));
 
-	# Paramètres
-	my ($chemin) = $_[0];
-	# On ouvre le fichier
-	open FILE, "<", $chemin or die $!;
-	my @contenu = <FILE>;
-	return $contenu[0];
-}
+######################
+### Initialisation ###
+######################
 
-sub minuscules {
+# On se connecte à la base de données
+my $client = MongoDB::MongoClient -> new;
+my $db = $client -> get_database('Wikinews');
+# On se connecte à l'index direct et à l'index inversé
+my $inverse = $db -> get_collection('Index inverse');
+my $direct = $db -> get_collection('Index direct');
+# On les vide
+$inverse -> remove();
+$direct -> remove();
+# On instancie un index direct et un un index inverse
+my %indexDirect = ();
+my %indexInverse = ();
 
-	# Paramètres
-	my ($texte) = $_[0];
+#################################
+### Parsage des fichiers HTML ###
+#################################
 
-	# On applique une expression régulière
-	$texte =~ s/(.+)/\L$1/gi;
-	return $texte;
-}
-
-sub ponctuation {
-
-	# Paramètres
-	my $texte = $_[0];
-
-	# On applique une expression régulière
-	$texte =~ s/([[:punct:]])/ /gi;
-	$texte =~ s/\s+/ /g;
-	return $texte;
-}
-
-sub separer {
-
-	# Paramètres
-	my $texte = $_[0];
-
-	# On parcourt chaque mot vide
-	my @mots = split( ' ', $texte );
-	return @mots;
-}
-
-sub lemmatisation {
-
-	# Paramètres
-	my ($mots) = $_[0];
-	
-	# On lemmatise chaque mot
-	my $stemmer = Lingua::Stem -> new(-locale => 'FR');
-	$stemmer -> stem_caching({-level => 2 });
-    $mots = $stemmer -> stem(separer($mots));
-    # Attention, le stemmer renvoir un pointeur vers une liste
-	return @$mots;
-}
-
-sub frequence {
-
-	# Paramètres
-	my (@mots) = @_;
-
-	# Hash
-	my %occurrences = ();
-
-	#On vérifie chaque mot
-	foreach my $mot (@mots) {
-
-	 #S'il a déjà été rentré alors on incrémente l'entrée du dictionnaire
-		if ( exists $occurrences{$mot} ) {
-			$occurrences{$mot}++;
-
-			#Sinon on crée une entrée dans le dictionnaire
-		}
-		else {
-			$occurrences{$mot} = 1;
-		}
+# On récupère les fichiers HTML dans le dossier data
+opendir (DIR, 'data/') or die $!;
+# On regarde chaque fichier HTML
+while (my $fichier = readdir(DIR)) {
+	# On vérifie que c'est bien un fichier HTML 
+	if ($fichier =~ /(.*)\.html/) {
+		# On récupère le nom du document (sans le ".html")
+		my $nom = Encode::decode('utf8', $1);
+		# On ouvre le fichier
+		open FILE, '<', "data/$fichier" or die $!;
+		# On met chaque ligne dans un tableau
+		my @data = <FILE>;
+		# On joint les lignes et on enlève les espaces en trop
+		my $contenu = maxhtmlparsing::clean(@data);
+		# On cherche la dernière date de modification de l'article
+		$indexDirect{$nom}{'dateModification'} = maxhtmlparsing::dateModification($contenu);
+		# On cherche les catégories de l'article
+		$indexDirect{$nom}{'categories'} = [maxhtmlparsing::categories($contenu)];
+		# On cherche les sources de l'article
+		$indexDirect{$nom}{'sources'} = [maxhtmlparsing::sources($contenu)];
+		# On récupère le body
+		my $body = maxhtmlparsing::body($contenu);
+		# On enlève les liens vers les réseaux sociaux
+		$body = maxhtmlparsing::enleverPartage($body);
+		# On récupère les paragraphes entre les balises p
+		$body = maxhtmlparsing::paragraphes($body);
+		# On enlève le code HTML
+		$body = maxhtmlparsing::retirerHTML($body);
+		# On récupère la date d'écriture de l'article
+		$indexDirect{$nom}{'dateEcriture'} = maxhtmlparsing::date($body);
+		# On sauvegarde le body dans un dossier
+		open my $fichierTexte, '>', 'bodies/'.$nom.'.txt' or die $!;
+		print {$fichierTexte} $body;
 	}
-	return %occurrences;
 }
 
-sub lister {
+######################################
+### Indexation des fichiers textes ###
+######################################
+# On index les bodys extraits
+indexerCollection('bodies/');
+
+=pod
+Stockage dans la base MongoDB
+=cut
+# On stocke l'index direct
+foreach my $document (keys %indexDirect) {
+	$direct -> save({
+		'_id' => $document,
+		'dateModification' => $indexDirect{$document}{'dateModification'},
+		'categories' => $indexDirect{$document}{'categories'},
+		'sources' => $indexDirect{$document}{'sources'},
+		'dateEcriture' => $indexDirect{$document}{'dateEcriture'},
+		'nbMots' => $indexDirect{$document}{'nbMots'},
+		'longueur' => $indexDirect{$document}{'longueur'},
+		'mots' => $indexDirect{$document}{'mots'}
+		});
+}
+# On stocke l'index inverse
+foreach my $mot (keys %indexInverse) {
+	$inverse -> save({
+		'_id' => $mot,
+		'nbDocuments' => $indexInverse{$mot}{'nbDocuments'},
+		'documents' => $indexInverse{$mot}{'documents'}
+		});
+}
+
+=pod
+Les fonctions suivantes ne sont pas dans le module
+maxparsing car elles nécessitent des variables globales.
+=cut
+sub indexer {
 	# Paramètres
-	my $chemin = $_[0];
-	# On ouvre le dossier
-	opendir (DIR, $chemin) or die $!;
-	my @fichiers = ();
-	# On regarde chaque fichier
-	while (my $fichier = readdir(DIR)){
-		# On vérfie que le fichier soit un fichier html
-		if ($fichier =~ /.*\.txt/) {
-			# On l'ajoute à la liste des fichiers
-			push(@fichiers, $chemin.$fichier);
-		}
+	my ( $idDoc, $chemin ) = @_;
+	# On prend le contenu du document
+	my $mots = lireTexte($chemin);
+	# On le nettoie
+	$mots = minuscules($mots);
+	$mots = ponctuation($mots);
+	foreach my $mot (@motsVides) {
+		$mots =~ s/\b$mot\b/ /gi;
+		$mots =~ s/\s+/ /g;
 	}
-	return @fichiers;
+	my @mots = lemmatisation($mots);
+	#my @mots = separer($mots);
+	# On cherche la frequence des mots
+	my %frequence = frequence(@mots);
+	# Index direct
+	foreach my $terme ( keys %frequence ) {
+		my $frequenceMot = $frequence{$terme};
+		$indexDirect{$idDoc}{'mots'}{$terme} = $frequenceMot;
+		$indexDirect{$idDoc}{'nbMots'} += 1;
+		$indexDirect{$idDoc}{'longueur'} += $frequenceMot;
+	}
+	# Index inverse
+	foreach my $terme ( keys %frequence ) {
+		$indexInverse{$terme}{'documents'}{$idDoc} = $frequence{$terme};
+		$indexInverse{$terme}{'nbDocuments'} += 1;
+	}
 }
-
-sub sauvegarderIndex {
+sub indexerCollection {
 	# Paramètres
-	my ($chemin, $nom, %index) = @_;
-	my $json = encode_json \%index;
-	open my $fichierJSON, '>', "$chemin/$nom.json" or die $!;
-	print {$fichierJSON} Encode::decode('utf8', $json);
+	my ( $chemin ) = @_;
+	# On récupère les fichiers
+	my @fichiers = lister($chemin);
+	# On parcourt chaque fichier
+	foreach my $fichier (@fichiers) {
+		$fichier =~ /.+\/+(.+).txt/;
+		my $nom = Encode::decode('utf8', $1);
+		indexer($nom, $fichier);
+	}
 }
-1;
