@@ -32,7 +32,7 @@ $MongoDB::BSON::utf8_flag_on = 0;
 my @couleurs = ("#2aabd2", "#E0E0E0");
 my @documents = ();
 # d documents
-my $d = 50;
+my $d = 20;
 # Requête des d plus documents les plus longs
 my $curseurDocs = $direct -> find({}) -> sort({'longueur' => -1}) -> limit($d);
 # La couleur change
