@@ -4,6 +4,11 @@ use strict;
 use MongoDB;
 use Lingua::Stem qw(stem);
 use Data::Dumper;
+use Encode;
+use Time::HiRes qw(time);
+
+# On va mesurer le temps que prend la requête
+my $t0 = time;
 
 #########################
 ### Connexion MongoDB ###
@@ -31,15 +36,17 @@ foreach my $element (split(/&/, $ENV{'QUERY_STRING'})){
 my $requete = $formulaire{'requete'};
 # On la nettoie exactement comme les bodys auparavant
 chomp $requete;
-my @termes = preparer($requete);
+my @termes = lemmatisation(preparer($requete));
 
 # On va stocker les RSV dans un hashage
-my %pertinences = RSV(@termes);
+my %pertinences = TFIDF(@termes);
 
 ######################
 ### Affichage HTML ###
 ######################
 
+# On va concatener tous les bodys
+my $blob = '';
 # Header
 open(HEADER, '<', 'html/header');
 # Onglets de navigation
@@ -51,30 +58,100 @@ print "content-type : text/html\n\n <!DOCTYPE html>";
 print <HEADER>;
 print"Moteur de recherche";
 print <NAVIGATION>;
-print <RECHERCHE>;
-print"<div align='center' class='container'>
-<div id='accordeon' class='panel-group col-lg-12'>";
+print"
+<form align='center' class='form-inline well well-lg' action='./requete.pl' method='get'>
+	<div class='form-group'>
+		<label class='sr-only' for='text'>Saisie</label>
+		<input name=requete id='text' size='35' type='text' class='form-control' placeholder=$requete>
+		<button class='btn btn-info' type='submit'><span class='glyphicon glyphicon-search'></span> Rechercher</button>
+	</div>
+</form>";
+print"
+<div align='center' class='container'>
+	<div id='accordeon' class='panel-group col-lg-12'>";
 my $itemCounter = 1;
-for my $document (keys %pertinences) {
+foreach my $document (keys %pertinences) {
 	open FILE, '<', 'stockage/bodies/'.$document.'.txt' or die $!;
 	my @contenu = <FILE>;
 	my $body = $contenu[0];
-	open(my $contenu, "<", );
 	my $item = 'item'.$itemCounter;
 	print"
 	<div class='panel panel-info'>
 		<div align='left' class='panel-heading'> 
-		<h4>
-			<a href='#$item' data-parent='#accordeon' data-toggle='collapse'>$itemCounter. $document</a> 
-      		</h4>
+			<h4><a href='#$item' data-parent='#accordeon' data-toggle='collapse'>$itemCounter. $document</a></h4>
       		</div>
-      		<div id='$item' class='panel-collapse collapse'>
-        		<div align='left' class='panel-body'>$body</div>
-      		</div>
-    	</div>";
+		<div id='$item' class='panel-collapse collapse'>
+        		<div align='left' class='panel-body'>
+				$body
+				</br>
+				<div class='pull-right'>
+				<button data-toggle='modal' href='#noter' class='btn btn-success'>Noter</button>
+				<div class='modal fade' id='noter'>
+					  <div class='modal-dialog'>
+					   	<div class='modal-content'>
+					      		<div class='modal-header'>
+								<button type='button' class='close' data-dismiss='modal'>x</button>
+									<h4 class='modal-title'>$document</h4>
+					      		</div>
+					      		<div class='modal-body'>
+								<form align='center' class='form-inline well well-lg' action='./noter.pl method='get'>
+									<div class='form-group'>
+										<span class='rating'>
+											<input type='radio' class='rating-input' id='rating-input-1-5' name='rating'/>
+											<label for='rating-input-1-5' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-1-4' name='rating'/>
+											<label for='rating-input-1-4' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-1-3' name='rating'/>
+											<label for='rating-input-1-3' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-1-2' name='rating'/>
+											<label for='rating-input-1-2' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-1-1' name='rating'/>
+											<label for='rating-input-1-1' class='rating-star'></label>
+										</span>
+										<button class='btn btn-success' type='submit'>Valider</button>
+									</div>
+								</form>
+					      		</div>
+					    	</div>
+					  </div>
+				</div>
+				<button data-toggle='modal' href='#commenter' class='btn btn-success'>Commenter</button>
+				<div class='modal fade' id='commenter'>
+					  <div class='modal-dialog'>
+					    	<div class='modal-content'>
+					      		<div class='modal-header'>
+								<button type='button' class='close' data-dismiss='modal'>x</button>
+									<h4 class='modal-title'>$document</h4>
+					      		</div>
+					      		<div class='modal-body'>
+								<form align='center' class='form-inline well well-lg' action='./commenter.pl method='get'>
+									<div class='form-group'>
+										<label class='sr-only' for='text'>Saisie</label>
+										<input name=requete id='text' size='35' type='text' class='form-control'>
+										<button class='btn btn-success' type='submit'>Valider</button>
+									</div>
+								</form>
+					      		</div>
+					    	</div>
+					</div>
+				</div>
+        		</div>
+		</div>
+      	</div>
+</div>
+";
 $itemCounter += 1;
 }
-print "</div> </div> </body> </html>";
+
+print "</div> 
+</div>
+</br>"; 
+
+my $elapsed = time - $t0;
+print "<center><h1><small>Temps de réponse: $elapsed ms.</small></h1></center>";
+
+print"</body>
+</html>";
 
 #############################
 ### Fonctions de requêtes ###
@@ -89,8 +166,7 @@ sub preparer {
 		$mots =~ s/\b$mot\b/ /gi;
 		$mots =~ s/\s+/ /g;
 	}
-	my @mots = lemmatisation($mots);
-	return @mots;
+	return $mots;
 }
 
 sub afficher {
@@ -113,7 +189,7 @@ sub lireTexte {
 	# On ouvre le fichier
 	open FILE, "<", $chemin or die $!;
 	my @contenu = <FILE>;
-	return $contenu[0];
+	return decode('UTF-8', $contenu[0]);
 }
 
 sub minuscules {
@@ -203,7 +279,7 @@ sub lister {
 ### Fonctions de scoring ###
 ############################
 
-sub RSV {
+sub TFIDF {
 	# Paramètres
 	my (@termes) = @_;
 	# On garde en mémoire le nombre de documents
@@ -236,6 +312,9 @@ sub RSV {
 			}
 		}
 	}
-	# 
 	return %pertinences;	
+}
+
+sub probabiliste {
+	print 'To do :(';
 }

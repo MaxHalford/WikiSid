@@ -1,7 +1,7 @@
-<form align='center' class='form-inline well' action='./requete.pl' method='get'>
+<form align='center' class='form-inline well well-lg' action='./requete.pl' method='get'>
 	<div class='form-group'>
 		<label class='sr-only' for='text'>Saisie</label>
-		<input name=requete id='text' type='text' class='form-control' placeholder='Requête'>
+		<input name=requete id='text' type='text' size='35' class='form-control' placeholder='Requête'>
 		<button class='btn btn-info' type='submit'><span class='glyphicon glyphicon-search'></span> Rechercher</button>
 	</div>
 </form>

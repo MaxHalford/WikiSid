@@ -64,6 +64,9 @@ while (my $fichier = readdir(DIR)) {
 		# On sauvegarde le body dans un dossier
 		open my $fichierTexte, '>', 'bodies/'.$nom.'.txt' or die $!;
 		print {$fichierTexte} $body;
+		# On ajoute le body à un "blob" qui contient tous les bodys
+		open my $blob, '>>', 'blob' or die $!;
+		print {$blob} $body;
 	}
 }
 
@@ -110,6 +113,8 @@ sub indexer {
 	my ( $idDoc, $chemin ) = @_;
 	# On prend le contenu du document
 	my $mots = lireTexte($chemin);
+	# On lui ajoute les mots du titre
+	$mots .= $idDoc;
 	# On le nettoie
 	$mots = minuscules($mots);
 	$mots = ponctuation($mots);
@@ -118,7 +123,6 @@ sub indexer {
 		$mots =~ s/\s+/ /g;
 	}
 	my @mots = lemmatisation($mots);
-	#my @mots = separer($mots);
 	# On cherche la frequence des mots
 	my %frequence = frequence(@mots);
 	# Index direct

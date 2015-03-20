@@ -29,10 +29,10 @@ $MongoDB::BSON::utf8_flag_on = 0;
 ### Les documents les plus longs ###
 ####################################
 
-my @couleurs = ("#2aabd2", "#E0E0E0");
+my @couleurs = ("rgba(151,187,205,0.5)", "rgba(151,187,205,0.8)");
 my @documents = ();
 # d documents
-my $d = 50;
+my $d = 20;
 # Requête des d plus documents les plus longs
 my $curseurDocs = $direct -> find({}) -> sort({'longueur' => -1}) -> limit($d);
 # La couleur change
@@ -52,7 +52,7 @@ while (my $pointeur = $curseurDocs -> next) {
 my $pieData = join(', ', @documents);
 print"
 <div align='center' class='container'>
-	<h2><font face='verdana'>Les documents les plus longs</font></h2>
+	<h2><font face='verdana'><small>Les documents les plus longs</small></font></h2>
 	</br>
 	<div style='width: 90%'>
 		<canvas id='pie' height='300' width='400'></canvas>
@@ -67,7 +67,7 @@ print"
 my $lemmes;
 my $frequences;
 # l lemmes
-my $l = 30;
+my $l = 20;
 # Requête des l lemmes les plus utilisés
 my $curseurLemmes = $inverse -> find({}) -> sort({'nbDocuments' => -1}) -> limit($l);
 # On extrait le nom et la longueur de chaque document
@@ -80,11 +80,12 @@ while (my $pointeur = $curseurLemmes -> next) {
 }
 print"
 <div align='center' class='container'>
-	<h2><font face='verdana'>Les lemmes les plus présents</font></h2>
+	<h2><font face='verdana'><small>Les lemmes les plus présents</small></font></h2>
 	<div style='width: 90%'>
 		<canvas id='bar' height='300' width='400'></canvas>
 	</div>
-</div>";
+</div>
+</br>";
 
 #################
 ### Affichage ###
@@ -121,28 +122,78 @@ print"
 ### Wordcloud de tous les documents ###
 #######################################
 
+# On ouvre le fichier blob
+open FILE, '<', 'stockage/blob' or die $!;
+# On met chaque ligne dans un tableau
+my @blob = <FILE>;
+# On raccorde les lignes
+my $blob = join('', @blob);
+# Et on enlève les retours chariots
+$blob =~ s/\s+/ /g;
 
+# Nettoyer
+
+# Séparer le string en une liste de mots
+my @motsBlob = split( ' ', $blob);
+# Compter la fréquence de chaque mot
+my %frequences = ();
+foreach my $mot (@motsBlob) {
+	if (exists $frequences{$mot}) {
+		$frequences{$mot} ++;
+	} else {
+		$frequences{$mot} = 1;
+	}
+}
+# On prend les meilleurs
+my $array = '';
+my $compteur = 1;
+foreach my $key (sort {$frequences{$b} <=> $frequences{$a}} keys %frequences) {
+	if ($compteur < 30) {
+		$array .= "'$key',";
+	}
+	$compteur ++;
+}
+
+print"
+<script src='js/d3-cloud/lib/d3/d3.js'></script>
+<script src='js/d3-cloud/d3.layout.cloud.js'></script>
+<script>
+  var fill = d3.scale.category20();
+
+  d3.layout.cloud().size([300, 300])
+      .words([$array].map(function(d) {
+        return {text: d, size: 30 + Math.random() * 60};
+      }))
+      .padding(5)
+      .rotate(function() { return ~~(Math.random() * 2) * 90; })
+      .font('Impact')
+      .fontSize(function(d) { return d.size; })
+      .on('end', draw)
+      .start();
+
+  function draw(words) {
+    d3.select('body').append('svg')
+        .attr('width', 300)
+        .attr('height', 300)
+      .append('g')
+        .attr('transform', 'translate(150,150)')
+      .selectAll('text')
+        .data(words)
+      .enter().append('text')
+        .style('font-size', function(d) { return d.size + 'px'; })
+        .style('font-family', 'Impact')
+        .style('fill', function(d, i) { return fill(i); })
+        .attr('text-anchor', 'middle')
+        .attr('transform', function(d) {
+          return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
+        })
+        .text(function(d) { return d.text; });
+  }
+</script>
+";
 
 print"
 </body>
 </html>
 ";
-
-sub gradient {
-    my ($min, $max) = @_;
-    my $mean = ($min + $max) / 2;
-    my $step = 255 / ($mean - $min);
-    return sub {
-        my $num = shift;
-        return "FF0000" if $num <= $min;    # lower boundry
-        return "00FF00" if $num >= $max;    # upper boundary
-        if ($num < $mean) {
-            return sprintf "FF%02X00" => int(($num - $min) * $step);
-        }
-        else {
-            return
-              sprintf "%02XFF00" => 255 - int(($num - $mean) * $step);
-        }
-    }
-}
 	

@@ -11,9 +11,9 @@
 <!-- Google Fonts -->
 <link href="http://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet" type="text/css">
 <!-- javascript modules -->
-<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src='js/bootstrap/bootstrap.js'></script>
 <script src='js/chart/Chart.js'></script>
+<script src="js/raty/jquery.raty.js"></script>
 </head>
 <body background='img/pentagon.png'>
 <div align='center'>
