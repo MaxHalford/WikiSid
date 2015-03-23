@@ -38,6 +38,7 @@ print"
 
 	<h1><small>Colophon</small></h1>
 	Ce site a été entièrement imaginé et réalisé par Salima Azzou, Kafil El Khadir, Rémi Simon et Max Halford.
+	Tout le code du projet est disponible <a href='https://github.com/MaxHalford/Wikisid'>ici</a>.
 <div>
 
 </blockquote>

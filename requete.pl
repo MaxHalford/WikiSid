@@ -6,6 +6,10 @@ use Lingua::Stem qw(stem);
 use Data::Dumper;
 use Encode;
 use Time::HiRes qw(time);
+#use open qw/:std :utf8/;
+
+# On fait en sorte que MongoDB renvoit des caractères UTF-8 décodés
+$MongoDB::BSON::utf8_flag_on = 0;
 
 # On va mesurer le temps que prend la requête
 my $t0 = time;
@@ -39,7 +43,7 @@ chomp $requete;
 my @termes = lemmatisation(preparer($requete));
 
 # On va stocker les RSV dans un hashage
-my %pertinences = TFIDF(@termes);
+my %pertinences = TFIDF_Variete(@termes);
 
 ######################
 ### Affichage HTML ###
@@ -71,10 +75,11 @@ print"
 	<div id='accordeon' class='panel-group col-lg-12'>";
 my $itemCounter = 1;
 foreach my $document (keys %pertinences) {
-	open FILE, '<', 'stockage/bodies/'.$document.'.txt' or die $!;
+	open FILE, '<:utf8', 'stockage/bodies/'.$document.'.txt' or die $!;
 	my @contenu = <FILE>;
 	my $body = $contenu[0];
 	my $item = 'item'.$itemCounter;
+	$document = decode('UTF-8', decode('UTF-8', encode('UTF-8', $document)));
 	print"
 	<div class='panel panel-info'>
 		<div align='left' class='panel-heading'> 
@@ -94,18 +99,20 @@ foreach my $document (keys %pertinences) {
 									<h4 class='modal-title'>$document</h4>
 					      		</div>
 					      		<div class='modal-body'>
-								<form align='center' class='form-inline well well-lg' action='./noter.pl method='get'>
+								<form align='center' class='form-inline well well-lg' action='./noter.pl' method='get'>
 									<div class='form-group'>
 										<span class='rating'>
-											<input type='radio' class='rating-input' id='rating-input-1-5' name='rating'/>
+											<input type='hidden' name='document' value=$document>
+											<input type='hidden' name='requete' value=$requete>
+											<input type='radio' class='rating-input' id='rating-input-1-5' name='rating' value=5>
 											<label for='rating-input-1-5' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-4' name='rating'/>
+											<input type='radio' class='rating-input' id='rating-input-1-4' name='rating' value=4>
 											<label for='rating-input-1-4' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-3' name='rating'/>
+											<input type='radio' class='rating-input' id='rating-input-1-3' name='rating' value=3>
 											<label for='rating-input-1-3' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-2' name='rating'/>
+											<input type='radio' class='rating-input' id='rating-input-1-2' name='rating' value=2>
 											<label for='rating-input-1-2' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-1' name='rating'/>
+											<input type='radio' class='rating-input' id='rating-input-1-1' name='rating' value=1>
 											<label for='rating-input-1-1' class='rating-star'></label>
 										</span>
 										<button class='btn btn-success' type='submit'>Valider</button>
@@ -126,6 +133,8 @@ foreach my $document (keys %pertinences) {
 					      		<div class='modal-body'>
 								<form align='center' class='form-inline well well-lg' action='./commenter.pl method='get'>
 									<div class='form-group'>
+										<input type='hidden' name='document' value=$document>
+										<input type='hidden' name=requete value=$requete/>
 										<label class='sr-only' for='text'>Saisie</label>
 										<input name=requete id='text' size='35' type='text' class='form-control'>
 										<button class='btn btn-success' type='submit'>Valider</button>
@@ -148,7 +157,7 @@ print "</div>
 </br>"; 
 
 my $elapsed = time - $t0;
-print "<center><h1><small>Temps de réponse: $elapsed ms.</small></h1></center>";
+print "<center><h1><small>Temps de réponse: $elapsed ms</small></h1></center>";
 
 print"</body>
 </html>";
@@ -279,6 +288,10 @@ sub lister {
 ### Fonctions de scoring ###
 ############################
 
+####################
+### TFIDF simple ###
+####################
+
 sub TFIDF {
 	# Paramètres
 	my (@termes) = @_;
@@ -296,7 +309,7 @@ sub TFIDF {
 			my $info = $curseur -> next;
 			# On extrait le DF
 			my $DF = $info -> {'nbDocuments'};
-			# On calculte l'IDF
+			# On calcule l'IDF
 			my $IDF = log($N / 1 + $DF);
 			# On extrait les documents qui contiennent le terme
 			my $pointeurHash = $info -> {'documents'};
@@ -309,6 +322,126 @@ sub TFIDF {
 				my $TFIDF = $TF * $IDF;
 				# On augmente la pertinence du document (le RSV)
 				$pertinences{$doc} += $TFIDF;
+			}
+		}
+	}
+	return %pertinences;	
+}
+
+##########################################################
+### TFIDF qui tient compte de la variété des documents ###
+##########################################################
+
+sub TFIDF_Variete {
+	# Paramètres
+	my (@termes) = @_;
+
+	# On va calculer la variété des documents par rapport à la requête
+	my %varietes = ();
+	
+	# On garde en mémoire le nombre de documents
+	my $N = $direct -> count;
+	# On va stocker les RSV dans un hashage
+	my %pertinences = ();
+	# On regarde chaque terme
+	foreach my $terme (@termes) {
+		# On fait une requête pour le terme
+		my $curseur = $inverse -> find({'_id' => $terme});
+		# On vérifie que le terme est dans la BDD
+		if ($curseur -> count eq 1) {
+			# On récupère le résultat
+			my $info = $curseur -> next;
+			# On extrait le DF
+			my $DF = $info -> {'nbDocuments'};
+			# On calcule l'IDF
+			my $IDF = log($N / 1 + $DF);
+			# On extrait les documents qui contiennent le terme
+			my $pointeurHash = $info -> {'documents'};
+			my %docs = %$pointeurHash;
+			# Pour chaque document contenant le terme
+			foreach my $doc (keys %docs) {
+
+				# Le document contient un mot de la requête			
+				$varietes{$doc} ++;
+				
+				# On extrait le TF
+				my $TF = $docs{$doc};
+				# On calcule le TFIDF
+				my $TFIDF = $TF * $IDF;
+				# On augmente la pertinence du document (le RSV)
+				$pertinences{$doc} += $TFIDF;
+			}
+		}
+	}
+
+	# Pour chaque document trouvé
+	foreach my $doc (keys %pertinences) {
+		# On multiplie le TFIDF du document par sa variété
+		$pertinences{$doc} *= $varietes{$doc}
+	}
+
+	return %pertinences;	
+}
+
+##################
+### Okapi BM25 ###
+##################
+
+sub BM25 {
+	# Paramètres
+	my (@termes) = @_;
+	# On garde en mémoire le nombre de documents
+	my $N = $direct -> count;
+	# On va stocker les RSV dans un hashage
+	my %pertinences = ();
+	# On regarde chaque terme
+	foreach my $terme (@termes) {
+		# Hyperparamètres
+		my $b = 0.75;
+		my $k = 1.6;
+		# On fait une requête pour le terme
+		my $curseur = $inverse -> find({'_id' => $terme});
+		# On vérifie que le terme est dans la BDD
+		if ($curseur -> count eq 1) {
+			# On récupère le résultat
+			my $info = $curseur -> next;
+			# On extrait le DF
+			my $DF = $info -> {'nbDocuments'};
+			# On calcule l'IDF
+			my $IDF = log($N / 1 + $DF);
+			# On extrait les documents qui contiennent le terme
+			my $pointeurHash = $info -> {'documents'};
+			my %docs = %$pointeurHash;
+			# Il faut extraire la longueur de chaque document
+			my %longueurDocuments = ();
+			# Pour chaque document qui contient le terme
+			foreach my $doc (keys %docs) {
+				# On extrait la longueur du document
+				my $curseur = $direct -> find({'_id' => $doc});
+				my $info = $curseur -> next;
+				my $longueur = $info -> {'longueur'};
+				$longueurDocuments{$doc} = $longueur;
+			}
+			# On veut calculer la longueur moyenne des documents
+			my $longueur = 0;
+			# Pour chaque document
+			foreach my $document (keys %longueurDocuments) {
+				# On ajoute la longueur
+				$longueur += $longueurDocuments{$document};
+			}
+			# On divise par le nombre de documents
+			my $nbDocuments = keys %longueurDocuments;
+			my $longueurMoyenne = $longueur / $nbDocuments;
+			# Pour chaque document contenant le terme
+			foreach my $doc (keys %docs) {
+				# On extrait le TF
+				my $TF = $docs{$doc};
+				# On calcule le TFIDF
+				my $numerateur = $TF * ($k + 1);
+				my $denominateur = $TF + $k * (1 - $b * (1 + $longueurDocuments{$doc} / $longueurMoyenne));
+				my $score = $IDF * $numerateur / $denominateur;
+				# On augmente la pertinence du document (le RSV)
+				$pertinences{$doc} += $score;
 			}
 		}
 	}

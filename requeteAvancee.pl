@@ -3,6 +3,7 @@
 use strict;
 use MongoDB;
 use Time::HiRes qw(time);
+#use open qw/:std :utf8/;
 
 # On va mesurer le temps que prend la requête
 my $t0 = time;
@@ -133,6 +134,7 @@ foreach my $document (@documents) {
 	my @contenu = <FILE>;
 	my $body = $contenu[0];
 	my $item = 'item'.$itemCounter;
+	$document = decode('UTF-8', decode('UTF-8', encode('UTF-8', $document)));
 	print"
 	<div class='panel panel-info'>
 		<div align='left' class='panel-heading'> 
@@ -152,7 +154,7 @@ print "</div>
 </br>";
 
 my $elapsed = time - $t0;
-print "<center><h1><small>Temps de réponse: $elapsed ms.</small></h1></center>";
+print "<center><h1><small>Temps: $elapsed ms.</small></h1></center>";
 
 print"</body>
 </html>";
