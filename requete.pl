@@ -7,6 +7,12 @@ use Data::Dumper;
 use Encode;
 use Time::HiRes qw(time);
 #use open qw/:std :utf8/;
+use JSON;
+
+# On ouvre les paramètres définit par l'utilisateur
+open my $json, '<', 'parametres.json' or die $!;
+my $parametres = decode_json(<$json>);
+my %parametres = %$parametres;
 
 # On fait en sorte que MongoDB renvoit des caractères UTF-8 décodés
 $MongoDB::BSON::utf8_flag_on = 0;
@@ -43,7 +49,23 @@ chomp $requete;
 my @termes = lemmatisation(preparer($requete));
 
 # On va stocker les RSV dans un hashage
-my %pertinences = TFIDF_Variete(@termes);
+my %pertinences;
+# On utilise la méthode de scoring définit dans les paramètres
+if ($parametres{'methode'} eq 'TFIDF') {
+	%pertinences = TFIDF(@termes);
+} else {
+	if ($parametres{'methode'} eq 'TFIDF_Variete') {
+		%pertinences = TFIDF_Variete(@termes);
+	} else {
+		if ($parametres{'methode'} eq 'Okapi_BM25') {
+			%pertinences = BM25(@termes);
+		} else {
+			if ($parametres{'methode'} eq 'Frequentielle') {
+			%pertinences = frequentielle(@termes);
+			}
+		}
+	}
+}
 
 ######################
 ### Affichage HTML ###
@@ -66,7 +88,7 @@ print"
 <form align='center' class='form-inline well well-lg' action='./requete.pl' method='get'>
 	<div class='form-group'>
 		<label class='sr-only' for='text'>Saisie</label>
-		<input name=requete id='text' size='35' type='text' class='form-control' placeholder=$requete>
+		<input name=requete id='text' size='35' type='text' class='form-control' placeholder=\'$requete\'>
 		<button class='btn btn-info' type='submit'><span class='glyphicon glyphicon-search'></span> Rechercher</button>
 	</div>
 </form>";
@@ -87,33 +109,33 @@ foreach my $document (keys %pertinences) {
       		</div>
 		<div id='$item' class='panel-collapse collapse'>
         		<div align='left' class='panel-body'>
-				$body
+					$body
 				</br>
 				<div class='pull-right'>
-				<button data-toggle='modal' href='#noter' class='btn btn-success'>Noter</button>
-				<div class='modal fade' id='noter'>
+				<button data-toggle='modal' href='#noter$item' class='btn btn-success'>Noter</button>
+				<div class='modal fade' id='noter$item'>
 					  <div class='modal-dialog'>
-					   	<div class='modal-content'>
+							<div class='modal-content'>
 					      		<div class='modal-header'>
-								<button type='button' class='close' data-dismiss='modal'>x</button>
+									<button type='button' class='close' data-dismiss='modal'>x</button>
 									<h4 class='modal-title'>$document</h4>
-					      		</div>
+								</div>
 					      		<div class='modal-body'>
-								<form align='center' class='form-inline well well-lg' action='./noter.pl' method='get'>
+								<form align='center' class='form-inline well well-lg' action='./noter.pl' method='get' accept-charset='ISO-8859-1'>
 									<div class='form-group'>
 										<span class='rating'>
-											<input type='hidden' name='document' value=$document>
+											<input type='hidden' name='document' value=\'$document\'>
 											<input type='hidden' name='requete' value=$requete>
-											<input type='radio' class='rating-input' id='rating-input-1-5' name='rating' value=5>
-											<label for='rating-input-1-5' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-4' name='rating' value=4>
-											<label for='rating-input-1-4' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-3' name='rating' value=3>
-											<label for='rating-input-1-3' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-2' name='rating' value=2>
-											<label for='rating-input-1-2' class='rating-star'></label>
-											<input type='radio' class='rating-input' id='rating-input-1-1' name='rating' value=1>
-											<label for='rating-input-1-1' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-$item-5' name='rating' value=5>
+											<label for='rating-input-$item-5' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-$item-4' name='rating' value=4>
+											<label for='rating-input-$item-4' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-$item-3' name='rating' value=3>
+											<label for='rating-input-$item-3' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-$item-2' name='rating' value=2>
+											<label for='rating-input-$item-2' class='rating-star'></label>
+											<input type='radio' class='rating-input' id='rating-input-$item-1' name='rating' value=1>
+											<label for='rating-input-$item-1' class='rating-star'></label>
 										</span>
 										<button class='btn btn-success' type='submit'>Valider</button>
 									</div>
@@ -122,8 +144,8 @@ foreach my $document (keys %pertinences) {
 					    	</div>
 					  </div>
 				</div>
-				<button data-toggle='modal' href='#commenter' class='btn btn-success'>Commenter</button>
-				<div class='modal fade' id='commenter'>
+				<button data-toggle='modal' href='#commenter$item' class='btn btn-success'>Commenter</button>
+				<div class='modal fade' id='commenter$item'>
 					  <div class='modal-dialog'>
 					    	<div class='modal-content'>
 					      		<div class='modal-header'>
@@ -131,7 +153,7 @@ foreach my $document (keys %pertinences) {
 									<h4 class='modal-title'>$document</h4>
 					      		</div>
 					      		<div class='modal-body'>
-								<form align='center' class='form-inline well well-lg' action='./commenter.pl method='get'>
+								<form align='center' class='form-inline well well-lg' action='./commenter.pl method='get' accept-charset='ISO-8859-1'>
 									<div class='form-group'>
 										<input type='hidden' name='document' value=$document>
 										<input type='hidden' name=requete value=$requete/>
@@ -447,6 +469,50 @@ sub BM25 {
 	}
 	return %pertinences;	
 }
+
+#####################
+### Fréquentielle ###
+#####################
+
+sub frequentielle {
+	# Paramètres
+	my (@termes) = @_;
+	# On garde en mémoire le nombre de documents
+	my $N = $direct -> count;
+	# On va stocker les RSV dans un hashage
+	my %pertinences = ();
+	# On regarde chaque terme
+	foreach my $terme (@termes) {
+		# On fait une requête pour le terme
+		my $curseur = $inverse -> find({'_id' => $terme});
+		# On vérifie que le terme est dans la BDD
+		if ($curseur -> count eq 1) {
+			# On récupère le résultat
+			my $info = $curseur -> next;
+			# On extrait les documents qui contiennent le terme
+			my $pointeurHash = $info -> {'documents'};
+			my %docs = %$pointeurHash;
+			# Pour chaque document contenant le terme
+			foreach my $doc (keys %docs) {
+				# Le mot est une fois dans le document
+				$pertinences{$doc} += 1;
+			}
+		}
+	}
+	return %pertinences;	
+}
+
+############
+### Cos² ###
+############
+
+sub cos2 {
+	print 'To do :(';
+}
+
+####################
+### Probabiliste ###
+####################
 
 sub probabiliste {
 	print 'To do :(';

@@ -37,6 +37,12 @@ while (my $fichier = readdir(DIR)) {
 	if ($fichier =~ /(.*)\.html/) {
 		# On récupère le nom du document (sans le ".html")
 		my $nom = Encode::decode('utf8', $1);
+		
+		# Les apostrophes sont des PITA
+		$nom =~ s/'/ /g;
+
+		# On remplace les espaces en trop
+		$nom =~ s/\s+/ /g;
 		# On ouvre le fichier
 		open FILE, '<', "data/$fichier" or die $!;
 		# On met chaque ligne dans un tableau
@@ -62,7 +68,7 @@ while (my $fichier = readdir(DIR)) {
 		# On récupère la date d'écriture de l'article
 		$indexDirect{$nom}{'dateEcriture'} = maxhtmlparsing::date($body);
 		# On sauvegarde le body dans un dossier
-		open my $fichierTexte, '>', 'bodies/'.$nom.'.txt' or die $!;
+		open my $fichierTexte, '>:encoding(UTF-8)', 'bodies/'.$nom.'.txt' or die $!;
 		print {$fichierTexte} $body;
 		# On ajoute le body à un "blob" qui contient tous les bodys
 		open my $blob, '>>', 'blob' or die $!;
@@ -103,14 +109,20 @@ foreach my $mot (keys %indexInverse) {
 		});
 }
 
-################################################################
-### Les fonctions suivantes ne sont pas dans le module       ###
-### maxparsing car elles nécessitent des variables globales. ###
-################################################################
+##########################################################
+### Les fonctions suivantes ne sont pas dans un module ###
+### car elles nécessitent des variables globales.      ###
+##########################################################
 
 sub indexer {
 	# Paramètres
-	my ( $idDoc, $chemin ) = @_;
+	my ($idDoc, $chemin) = @_;
+
+	# Les apostrophes sont des PITA
+	$idDoc =~ s/'/ /g;
+
+	# On remplace les espaces en trop
+	$idDoc =~ s/\s+/ /g;
 	# On prend le contenu du document
 	my $mots = lireTexte($chemin);
 	# On lui ajoute les mots du titre
@@ -140,7 +152,7 @@ sub indexer {
 }
 sub indexerCollection {
 	# Paramètres
-	my ( $chemin ) = @_;
+	my ($chemin) = @_;
 	# On récupère les fichiers
 	my @fichiers = lister($chemin);
 	# On parcourt chaque fichier

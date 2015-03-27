@@ -36,6 +36,9 @@ print"
 			<label class='btn btn-success'>
 				<input type='radio' name='methode' value='Okapi_BM25'>Okapi BM25
 			</label>
+			<label class='btn btn-success'>
+				<input type='radio' name='methode' value='Frequentielle'>Fréquentielle
+			</label>
 		</div>
 	<h1><small>Page statistiques</small></h1>
 		<h3><small>Nombre de documents analysés</small></h3>
@@ -44,7 +47,7 @@ print"
 		</div>
 		<h3><small>Nombre de lemmes analysés</small></h3>
 		<div class='btn-group' data-toggle='buttons'>
-			<input name=lemmes id='text' type='text' class='form-control' value=100>
+			<input name=lemmes id='text' type='text' class='form-control' value=50>
 		</div>
 		</br>
 		</br>

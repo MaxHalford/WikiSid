@@ -3,7 +3,8 @@
 use strict;
 use MongoDB;
 use Time::HiRes qw(time);
-#use open qw/:std :utf8/;
+use Encode;
+use open qw/:std :utf8/;
 
 # On va mesurer le temps que prend la requête
 my $t0 = time;
@@ -117,10 +118,10 @@ print"
 <form align='center' class='form-inline well well-lg' action='./requeteAvancee.pl' method='get'>
 	<div class='form-group'>
 		<label class='sr-only' for='text'>Saisie</label>
-		<input value=$jour list='jours' name=jour id='text' type='text' class='form-control'>
-		<input value=$mois list='mois' name=mois id='text' type='text' class='form-control'>
-		<input value=$annee list='annees' name=annee id='text' type='text' class='form-control'>
-		<input value=$categorie list='categories' name=categorie id='text' type='text' placeholder=$categorie class='form-control'>
+		<input placeholder=$jour size='8' list='jours' name=jour id='text' type='text' class='form-control'>
+		<input placeholder=$mois size='8' list='mois' name=mois id='text' type='text' class='form-control'>
+		<input placeholder=$annee size='8' list='annees' name=annee id='text' type='text' class='form-control'>
+		<input placeholder=$categorie size='15' list='categories' name=categorie id='text' type='text' placeholder=$categorie class='form-control'>
 		<button class='btn btn-info' type='submit'><span class='glyphicon glyphicon-search'></span> Rechercher</button>
 	</div>
 </form>";
@@ -143,7 +144,9 @@ foreach my $document (@documents) {
       	</h4>
       	</div>
       	<div id='$item' class='panel-collapse collapse'>
-        	<div align='left' class='panel-body'>$body</div>
+        	<div align='left' class='panel-body'>
+				$body
+			</div>
       	</div>
     </div>";
 $itemCounter += 1;
