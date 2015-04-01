@@ -61,7 +61,7 @@ while (my $pointeur = $curseurDocs -> next) {
 my $pieData = join(', ', @documents);
 print"
 <div align='center' class='container'>
-	<h2><font face='verdana'><small>Les documents les plus longs</small></font></h2>
+	<h2><font face='verdana'><small>Les $d documents les plus longs</small></font></h2>
 	</br>
 	<div style='width: 90%'>
 		<canvas id='pie' height='300' width='400'></canvas>
@@ -89,16 +89,50 @@ while (my $pointeur = $curseurLemmes -> next) {
 }
 print"
 <div align='center' class='container'>
-	<h2><font face='verdana'><small>Les lemmes les plus présents</small></font></h2>
+	<h2><font face='verdana'><small>Les $l lemmes les plus présents</small></font></h2>
 	<div style='width: 90%'>
 		<canvas id='bar' height='300' width='400'></canvas>
 	</div>
 </div>
 </br>";
 
-#################
-### Affichage ###
-#################
+#############################
+### Histogramme des notes ###
+#############################
+
+my %frequences;
+# Requête sur toutes les notes
+my $curseurLemmes = $direct -> find({});
+# On extrait toutes les notes de chaque document
+while (my $pointeur = $curseurLemmes -> next) {	
+	my %document = %$pointeur;
+	foreach my $note (@{$document{'notes'}}) {
+		if (exists $frequences{$note}) {
+			$frequences{$note} ++;
+		} else {
+			$frequences{$note} = 1;
+		}
+	}
+}
+my $notes;
+my $frequencesNotes;
+foreach my $key (sort {$a <=> $b} keys %frequences) {
+		$notes .= "'$key',";
+		my $frequence = $frequences{$key};
+		$frequencesNotes .= "$frequence,";
+}
+print"
+<div align='center' class='container'>
+	<h2><font face='verdana'><small>Distribution des notes</small></font></h2>
+	<div style='width: 90%'>
+		<canvas id='hist' height='300' width='400'></canvas>
+	</div>
+</div>
+</br>";
+
+################################
+### Affichage des graphiques ###
+################################
 
 print"
 <script>
@@ -115,7 +149,20 @@ print"
 					data : [$frequences]
 				}
 			]
-		}
+		};
+	
+	var histData = {
+			labels : [$notes],
+			datasets : [
+				{
+					fillColor : 'rgba(151,187,205,0.5)',
+					strokeColor : 'rgba(151,187,205,0.8)',
+					highlightFill : 'rgba(151,187,205,0.75)',
+					highlightStroke : 'rgba(151,187,205,1)',
+					data : [$frequencesNotes]
+				}
+			]
+		};
 	
 	window.onload = function(){
 		var ctx = document.getElementById('pie').getContext('2d');
@@ -123,6 +170,9 @@ print"
 			
 		var ctx2 = document.getElementById('bar').getContext('2d');
 		window.myBar = new Chart(ctx2).Bar(barChartData);
+		
+		var ctx3 = document.getElementById('hist').getContext('2d');
+		window.myBar = new Chart(ctx3).Bar(histData);
 	};
 </script>
 ";
@@ -131,75 +181,76 @@ print"
 ### Wordcloud de tous les documents ###
 #######################################
 
-#~ # On ouvre le fichier blob
-#~ open FILE, '<', 'stockage/blob' or die $!;
-#~ # On met chaque ligne dans un tableau
-#~ my @blob = <FILE>;
-#~ # On raccorde les lignes
-#~ my $blob = join('', @blob);
-#~ # Et on enlève les retours chariots
-#~ $blob =~ s/\s+/ /g;
-#~ 
-#~ # Nettoyer
-#~ 
-#~ # Séparer le string en une liste de mots
-#~ my @motsBlob = split( ' ', $blob);
-#~ # Compter la fréquence de chaque mot
-#~ my %frequences = ();
-#~ foreach my $mot (@motsBlob) {
-	#~ if (exists $frequences{$mot}) {
-		#~ $frequences{$mot} ++;
-	#~ } else {
-		#~ $frequences{$mot} = 1;
-	#~ }
-#~ }
-#~ # On prend les meilleurs
-#~ my $array = '';
-#~ my $compteur = 1;
-#~ foreach my $key (sort {$frequences{$b} <=> $frequences{$a}} keys %frequences) {
-	#~ if ($compteur < 30) {
-		#~ $array .= "'$key',";
-	#~ }
-	#~ $compteur ++;
-#~ }
-#~ 
-#~ print"
-#~ <script src='js/d3-cloud/lib/d3/d3.js'></script>
-#~ <script src='js/d3-cloud/d3.layout.cloud.js'></script>
-#~ <script>
-  #~ var fill = d3.scale.category20();
-#~ 
-  #~ d3.layout.cloud().size([300, 300])
-      #~ .words([$array].map(function(d) {
-        #~ return {text: d, size: 30 + Math.random() * 60};
-      #~ }))
-      #~ .padding(5)
-      #~ .rotate(function() { return ~~(Math.random() * 2) * 90; })
-      #~ .font('Impact')
-      #~ .fontSize(function(d) { return d.size; })
-      #~ .on('end', draw)
-      #~ .start();
-#~ 
-  #~ function draw(words) {
-    #~ d3.select('body').append('svg')
-        #~ .attr('width', 300)
-        #~ .attr('height', 300)
-      #~ .append('g')
-        #~ .attr('transform', 'translate(150,150)')
-      #~ .selectAll('text')
-        #~ .data(words)
-      #~ .enter().append('text')
-        #~ .style('font-size', function(d) { return d.size + 'px'; })
-        #~ .style('font-family', 'Impact')
-        #~ .style('fill', function(d, i) { return fill(i); })
-        #~ .attr('text-anchor', 'middle')
-        #~ .attr('transform', function(d) {
-          #~ return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
-        #~ })
-        #~ .text(function(d) { return d.text; });
-  #~ }
-#~ </script>
-#~ ";
+# On ouvre le fichier blob (les mots vides ont déjà été enlevés dans stockage.pl)
+open FILE, '<', 'stockage/blob' or die $!;
+# On met chaque ligne dans un tableau
+my @blob = <FILE>;
+# On raccorde les lignes
+my $blob = join('', @blob);
+# Et on enlève les retours chariots
+$blob =~ s/\s+/ /g;
+
+# Séparer le string en une liste de mots
+my @motsBlob = split(' ', $blob);
+# Compter la fréquence de chaque mot
+my %frequences = ();
+foreach my $mot (@motsBlob) {
+	if (exists $frequences{$mot}) {
+		$frequences{$mot} ++;
+	} else {
+		$frequences{$mot} = 1;
+	}
+}
+# On prend les mots les plus fréquents
+my $array = '';
+my $compteur = 1;
+# La prochaine ligne trie un hashage en fonction des valeurs
+foreach my $key (sort {$frequences{$b} <=> $frequences{$a}} keys %frequences) {
+	if ($compteur < $l) {
+		$array .= "'$key',";
+	}
+	$compteur ++;
+}
+
+print"
+<center><h2><font face='verdana'><small>Nuage des $l lemmes les plus fréquents</small></font></h2></center>
+</br>
+<script src='js/d3-cloud/lib/d3/d3.js'></script>
+<script src='js/d3-cloud/d3.layout.cloud.js'></script>
+<script>
+  var fill = d3.scale.category20();
+
+  d3.layout.cloud().size([1200, 1200])
+      .words([$array].map(function(d) {
+        return {text: d, size: 30 + Math.random() * 60};
+      }))
+      .padding(5)
+      .rotate(function() { return ~~(Math.random() * 2) * 90; })
+      .font('Impact')
+      .fontSize(function(d) { return d.size; })
+      .on('end', draw)
+      .start();
+
+  function draw(words) {
+    d3.select('body').append('svg')
+        .attr('width', 1200)
+        .attr('height', 1200)
+      .append('g')
+        .attr('transform', 'translate(600, 500)')
+      .selectAll('text')
+        .data(words)
+      .enter().append('text')
+        .style('font-size', function(d) { return d.size + 'px'; })
+        .style('font-family', 'Impact')
+        .style('fill', function(d, i) { return fill(i); })
+        .attr('text-anchor', 'middle')
+        .attr('transform', function(d) {
+          return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
+        })
+        .text(function(d) { return d.text; });
+  }
+</script>
+";
 
 print"
 </body>

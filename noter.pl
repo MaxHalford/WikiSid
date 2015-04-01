@@ -2,10 +2,11 @@
 
 use strict;
 use MongoDB;
+use Encode;
 
 # On se connecte à la base de données
 my $db = MongoDB::MongoClient -> new -> get_database('Wikinews');
-# On récupère les indexs
+# On récupère l'index direct
 my $direct = $db -> get_collection('Index direct');
 
 # On récupère les paramètres fournis par l'utilisateur
@@ -19,11 +20,15 @@ foreach my $element (split(/&/, $ENV{'QUERY_STRING'})){
 my $document = $formulaire{'document'};
 my $requete = $formulaire{'requete'};
 my $note = $formulaire{'rating'};
-if ($note eq '') {
-	$direct -> update({'_id' => $document}, {'$push' => {'notes' => $note}});
+
+# On note si l'utilisateur en choisit une
+if ($note =~ /\d/) {
+	my $idDoc = decode('UTF-8', $document);
+	$direct -> update({'_id' => qr/$idDoc/}, {'$push' => {'notes' => $note}});
 }
 
-print "content-type : text/html\n\n <!DOCTYPE html>
+print"
+content-type : text/html\n\n <!DOCTYPE html>
 <html>
 <form name='myform' action='./requete.pl?requete=$requete' method='post'></form>
 <script type='text/javascript'>

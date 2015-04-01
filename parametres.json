@@ -1,1 +1,1 @@
-{"documents":"30","lemmes":"50","methode":"TFIDF"}
+{"documents":"30","lemmes":"40","methode":"Okapi_BM25"}

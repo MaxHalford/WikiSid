@@ -25,6 +25,10 @@ $direct -> remove();
 my %indexDirect = ();
 my %indexInverse = ();
 
+# On vide le blob contenant tous les mots (ou pas!)
+open my $blob, '>', 'blob' or die $!;
+print {$blob} '';
+
 #################################
 ### Parsage des fichiers HTML ###
 #################################
@@ -39,7 +43,7 @@ while (my $fichier = readdir(DIR)) {
 		my $nom = Encode::decode('utf8', $1);
 		
 		# Les apostrophes sont des PITA
-		$nom =~ s/'/ /g;
+		#$nom =~ s/'/ /g;
 
 		# On remplace les espaces en trop
 		$nom =~ s/\s+/ /g;
@@ -70,9 +74,6 @@ while (my $fichier = readdir(DIR)) {
 		# On sauvegarde le body dans un dossier
 		open my $fichierTexte, '>:encoding(UTF-8)', 'bodies/'.$nom.'.txt' or die $!;
 		print {$fichierTexte} $body;
-		# On ajoute le body à un "blob" qui contient tous les bodys
-		open my $blob, '>>', 'blob' or die $!;
-		print {$blob} $body;
 	}
 }
 
@@ -97,9 +98,12 @@ foreach my $document (keys %indexDirect) {
 		'dateEcriture' => $indexDirect{$document}{'dateEcriture'},
 		'nbMots' => $indexDirect{$document}{'nbMots'},
 		'longueur' => $indexDirect{$document}{'longueur'},
-		'mots' => $indexDirect{$document}{'mots'}
+		'mots' => $indexDirect{$document}{'mots'},
+		'notes' => [],
+		'commentaires' => []
 		});
 }
+
 # On stocke l'index inverse
 foreach my $mot (keys %indexInverse) {
 	$inverse -> save({
@@ -119,7 +123,7 @@ sub indexer {
 	my ($idDoc, $chemin) = @_;
 
 	# Les apostrophes sont des PITA
-	$idDoc =~ s/'/ /g;
+	#$idDoc =~ s/'/ /g;
 
 	# On remplace les espaces en trop
 	$idDoc =~ s/\s+/ /g;
@@ -134,6 +138,10 @@ sub indexer {
 		$mots =~ s/\b$mot\b/ /gi;
 		$mots =~ s/\s+/ /g;
 	}
+	# On ajoute les mots à un "blob" qui contient tous les mots pour des analyses futures
+	open my $blob, '>>', 'blob' or die $!;
+	print {$blob} "$mots";
+	
 	my @mots = lemmatisation($mots);
 	# On cherche la frequence des mots
 	my %frequence = frequence(@mots);
